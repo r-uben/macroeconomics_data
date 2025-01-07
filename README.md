@@ -38,7 +38,12 @@ git clone https://github.com/yourusername/macroeconomic_data.git
 cd macroeconomic_data
 ```
 
-2. Install dependencies:
+2. Install using Poetry (recommended):
+```bash
+poetry install
+```
+
+   Or using pip:
 ```bash
 pip install -r requirements.txt
 ```
