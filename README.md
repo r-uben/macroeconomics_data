@@ -87,8 +87,10 @@ The test suite includes:
 
 ## License
 
-[Add your license information here]
+Copyright (c) 2025. All rights reserved.
+
+This project and its contents are proprietary. No part of this project may be reproduced, distributed, or transmitted in any form or by any means without the prior written permission of the owner.
 
 ## Contributing
 
-[Add contribution guidelines here]
+All changes to this project must be explicitly requested and approved by me. Please contact the owner directly for any proposed modifications or improvements.
