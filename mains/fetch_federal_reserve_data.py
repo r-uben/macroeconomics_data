@@ -1,5 +1,5 @@
 import logging
-from src.macroeconomic_data.fred import DataFetcher
+from macroeconomic_data.fred import DataFetcher
 import pandas as pd
 import argparse
 from pathlib import Path

@@ -6,8 +6,8 @@ import logging
 from typing import Dict, List, Optional
 import groq
 from thefuzz import fuzz
-import boto3
 
+from ...aws.secrets_manager import get_secret
 from ...aws.bucket_manager import BucketManager
 
 logger = logging.getLogger(__name__)
@@ -15,10 +15,12 @@ logger = logging.getLogger(__name__)
 def get_groq_api_key() -> str:
     """Get Groq API key from AWS Secrets Manager."""
     try:
-        session = boto3.session.Session()
-        client = session.client('secretsmanager')
-        response = client.get_secret_value(SecretId='GROQ_API_KEY')
-        return response['SecretString']
+        api_key = get_secret('GROQ_API_KEY')
+        if isinstance(api_key, dict):
+            api_key = api_key.get('api_key')
+        if not api_key:
+            raise ValueError("Could not find valid Groq API key")
+        return api_key
     except Exception as e:
         logger.error(f"Error getting Groq API key: {str(e)}")
         raise
@@ -39,13 +41,14 @@ Return a JSON list of matches in format:
 {{
     "matches": [
         {{
-            "variable_key": "key from dictionary",
+            "variable_key": "category.type (e.g., 'cpi.core', 'gdp.real_gdp')",
             "confidence": 0-1 score,
             "reasoning": "brief explanation"
         }}
     ]
 }}
 
+IMPORTANT: For variables with options, use dot notation (e.g., 'cpi.core', 'gdp.real_gdp'). For simple variables, just use the name (e.g., 'unemployment').
 Only return variables that are truly relevant. If no good match exists, return an empty list."""
 
 class VariableMapper:

@@ -1,32 +1,27 @@
-from fredapi import Fred
+"""
+Core FRED client implementation.
+"""
+import logging
 import pandas as pd
-import json
-from ..utils.aws import get_secret
-from ..config.settings import settings
-from pathlib import Path
+from ...aws.secrets_manager import get_secret
+from fredapi import Fred
+
+logger = logging.getLogger(__name__)
 
 class FREDClient:
+    """Client for interacting with FRED API."""
+    
     def __init__(self):
+        """Initialize FRED client with API key from AWS Secrets Manager."""
         try:
-            # Get FRED API key
-            secret_value = get_secret(settings.FED_SECRET_NAME)
-            
-            # Handle both JSON and plain text formats
-            try:
-                api_key = json.loads(secret_value)['api_key']
-            except json.JSONDecodeError:
-                api_key = secret_value  # Use as plain text if not JSON
-                
-            if not api_key or not isinstance(api_key, str):
-                raise ValueError("Invalid FRED API key format")
-                
+            # Get API key and ensure it's a plain string
+            api_key = get_secret('FRED_API_KEY', key='api_key')
+            if isinstance(api_key, dict):
+                api_key = api_key.get('api_key')
             self.client = Fred(api_key=api_key)
-            
         except Exception as e:
-            print(f"\nAttempted to access secret: {settings.FED_SECRET_NAME}")
-            print(f"Current AWS Region: {settings.AWS_REGION}")
-            print(f"Error details: {str(e)}")
-            raise ValueError(f"Failed to initialize FRED client") from e
+            logger.error(f"Failed to initialize FRED client: {str(e)}")
+            raise
     
     def get_series(self, series_id: str, start_date=None, end_date=None) -> pd.DataFrame:
         """Fetch and standardize data series from FRED"""

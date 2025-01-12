@@ -1,113 +1,190 @@
-# Macroeconomic Data Analysis
+# Macroeconomic Data Fetcher
 
-A Python package for fetching, analyzing, and storing macroeconomic data from various sources including Federal Reserve Economic Data (FRED) with AWS integration and LLM capabilities.
+A Python tool for fetching and analyzing macroeconomic data from multiple sources using natural language queries.
 
 ## Features
 
-- **Multi-Source Data Integration**: 
-  - Federal Reserve Economic Data (FRED)
-  - More sources coming soon (e.g., Philadelphia Fed Greenbook Forecasts)
-- **AWS Integration**: Secure storage and management of data in AWS S3
-- **LLM Analysis**: Advanced data analysis using Groq's LLM capabilities
-- **Interactive Mode**: Command-line interface for custom data queries
+- **Multi-Source Data Integration**:
+  - Historical data from Federal Reserve Economic Data (FRED)
+  - Forecast data from Federal Reserve Greenbook/Tealbook
+  - Intelligent source selection using LLM
 
-### Current Data Sources
+- **Natural Language Interface**:
+  - Query data using plain English
+  - Automatic source selection based on query intent
+  - Interactive mode for FRED queries
 
-#### FRED API
-- Real GDP
-- Industrial Production
-- Unemployment Rate
-- Consumer Price Index
-- Core Inflation
-- Federal Funds Rate
+- **AWS Integration**:
+  - Secure API key management via AWS Secrets Manager
+  - Data storage in S3 buckets
+  - Automated updates and versioning
+
+- **LLM-Powered Analysis**:
+  - Query interpretation using Groq API
+  - Smart variable matching
+  - Automatic source selection
 
 ## Project Structure
 
 ```
 macroeconomic_data/
 ├── mains/
-│   └── fetch_federal_reserve_data.py  # Main script for FRED data fetching
+│   ├── fetch_data.py         # Main unified fetcher
+│   ├── fetch_federal_reserve_data.py
+│   └── fetch_greenbook_data.py
 ├── src/
 │   └── macroeconomic_data/
-│       ├── fred/                     # FRED-specific functionality
-│       │   ├── core/                 # Core FRED client and models
-│       │   ├── services/             # FRED data services
-│       │   ├── config/               # FRED-specific configuration
-│       │   └── utils/                # FRED utility functions
-│       ├── aws/                      # AWS integration
-│       └── common/                   # Shared functionality
+│       ├── fred/            # FRED-specific components
+│       │   ├── core/
+│       │   ├── services/
+│       │   └── utils/
+│       ├── greenbook/       # Greenbook-specific components
+│       │   ├── core/
+│       │   ├── services/
+│       │   └── utils/
+│       └── aws/             # AWS utilities
 ├── tests/
-│   ├── test_aws.py                   # AWS integration tests
-│   ├── test_groq.py                  # Groq LLM tests
-│   └── conftest.py                   # pytest configuration
+└── data/                    # Local data storage
+    ├── fred/               # FRED data by variable
+    └── green_book/         # Greenbook data by variable
 ```
 
 ## Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/macroeconomic_data.git
-cd macroeconomic_data
-```
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   poetry install
+   ```
 
-2. Install using Poetry (recommended):
-```bash
-poetry install
-```
-
-   Or using pip:
-```bash
-pip install -r requirements.txt
-```
-
-3. Configure AWS credentials and FRED API key:
-- Set up AWS credentials in `~/.aws/credentials` or via environment variables
-- Store your FRED API key in AWS Secrets Manager
+3. Configure AWS credentials:
+   - Set up AWS credentials in `~/.aws/credentials`
+   - Ensure you have access to the required AWS Secrets Manager secrets:
+     - `FRED_API_KEY`
+     - `GROQ_API_KEY`
 
 ## Usage
 
-### Command Line Interface
+### Unified Data Fetcher
 
-1. Fetch all key economic indicators:
+The main command for fetching data from any source:
+
 ```bash
-python mains/fetch_federal_reserve_data.py
+poetry run fetch-data "your query here"
 ```
 
-2. Interactive mode for custom queries:
+Examples:
+- For Greenbook forecasts:
+  ```bash
+  poetry run fetch-data "greenbook projections for real gdp"
+  poetry run fetch-data "what are the fed's forecasts for unemployment"
+  ```
+
+- For FRED historical data:
+  ```bash
+  poetry run fetch-data "historical real gdp data"
+  poetry run fetch-data "what's the current unemployment rate"
+  ```
+
+The fetcher will:
+1. Analyze your query using LLM
+2. Select the appropriate data source
+3. Fetch the requested data
+4. Save it in the corresponding directory (`data/fred/` or `data/green_book/`)
+
+### Source-Specific Fetchers
+
+You can also use source-specific fetchers directly:
+
+#### FRED Data
+
 ```bash
-python mains/fetch_federal_reserve_data.py --interactive
+# Interactive mode
+poetry run fetch-fred-data -i
+
+# Fetch all key indicators
+poetry run fetch-fred-data
 ```
 
-### Example Queries in Interactive Mode
-- "real gdp"
-- "unemployment rate"
-- "consumer price index"
-- "federal funds rate"
+#### Greenbook Data
 
-## Testing
-
-Run the test suite:
 ```bash
-pytest tests/
+# Fetch specific variable
+poetry run fetch-greenbook-data --query "real gdp"
+
+# Check for updates
+poetry run fetch-greenbook-data --check-updates
 ```
 
-The test suite includes:
-- AWS integration tests (`test_aws.py`)
-- Groq LLM functionality tests (`test_groq.py`)
+## Data Organization
+
+Data is organized by source and variable:
+
+- FRED data: `data/fred/<variable_name>/`
+  - `data.csv`: Time series data
+  - `metadata.txt`: Variable information
+
+- Greenbook data: `data/green_book/<variable_code>/`
+  - `data.csv`: Historical and forecast data
+  - `metadata.txt`: Variable information
 
 ## Requirements
 
-- Python 3.8+
-- AWS Account with appropriate permissions
-- FRED API key
-- Groq API access (for LLM capabilities)
+- Python 3.9+
+- AWS account with access to:
+  - Secrets Manager (for API keys)
+  - S3 (for Greenbook data storage)
+- FRED API access
+- Groq API access
 
 ## License
 
-Copyright (c) 2025. All rights reserved.
+Copyright (c) 2024. All rights reserved.
 
-This project and its contents are proprietary. No part of this project may be reproduced, distributed, or transmitted in any form or by any means without the prior written permission of the owner.
+This project is proprietary and may not be reproduced or distributed without explicit permission.
 
 ## Contributing
 
-All changes to this project must be explicitly requested and approved by me. Please contact the owner directly for any proposed modifications or improvements.
+All changes must be explicitly requested and approved by the project owner. Please contact the owner for any proposed modifications.
+
+## Usage Examples
+
+### Using the Unified Data Fetcher
+
+You can fetch data using natural language queries:
+
+```bash
+poetry run fetch-data "greenbook gdp price index"
+```
+
+Example interaction:
+```
+🔍 Processing query: greenbook gdp price index
+
+================================================================================
+
+🤔 Analyzing your query...
+📊 Selected Data Source: GREENBOOK
+💡 Reasoning: The user mentioned 'greenbook' in the query, which indicates they are likely looking for forecast or projection data.
+
+================================================================================
+
+📥 Fetching Greenbook projections...
+
+Multiple matches found. Please choose one:
+1. gdp.price_gdp (The GDP price index is also known as the GDP deflator, which measures the price level of all new, domestically produced final goods and services in an economy. It is very similar to the Consumer Price Index (CPI) and Producer Price Index (PPI), but the GDP deflator includes a broader range of goods and services. The 'gdp.price_gdp' variable measures GDP price inflation on a quarterly basis, annualized as a percentage point.)
+2. cpi.headline (The Consumer Price Index (CPI) is a measure of the average change over time in the prices paid by urban consumers for a market basket of consumer goods and services. The 'cpi.headline' variable measures headline CPI inflation on a quarterly basis, annualized as a percentage point. While not exactly the GDP price index, it is a widely used inflation indicator that can provide context for price changes in the economy.)
+3. pce.headline (The Personal Consumption Expenditures (PCE) Price Index is a measure of the prices that people living in the United States, regardless of where they were born or where they live, pay for goods and services. The 'pce.headline' variable measures headline PCE inflation on a quarterly basis, annualized as a percentage point. While not exactly the GDP price index, it can provide context for price changes in the economy.)
+
+Enter number (0 to cancel): 1
+
+================================================================================
+
+✅ Data fetched and saved successfully!
+```
+
+The tool will:
+1. Analyze your query to determine the appropriate data source
+2. If multiple relevant variables are found, provide detailed explanations to help you choose
+3. Fetch and save the selected data
+4. Store both the data and its metadata for future reference

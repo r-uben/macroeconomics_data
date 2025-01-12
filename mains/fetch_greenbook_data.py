@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 import pandas as pd
 
-from src.macroeconomic_data.greenbook import GreenBookDataFetcher
-from src.macroeconomic_data.greenbook.utils.variable_mapper import VariableMapper
+from macroeconomic_data.greenbook import GreenBookDataFetcher
+from macroeconomic_data.greenbook.utils.variable_mapper import VariableMapper
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
