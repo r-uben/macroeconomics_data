@@ -95,27 +95,30 @@ def fetch_data(query: str) -> Optional[bool]:
         
         print_separator()
         
-        # Save original argv
-        original_argv = sys.argv
-        
-        try:
-            # Run the appropriate script with the cleaned query
-            if source == "FRED":
-                print(f"📥 Fetching historical data from FRED...")
-                sys.argv = ['fetch-federal-reserve-data', '--query', cleaned_query]
-                success = fetch_federal_reserve_data.main() == 0
-            else:
-                print(f"📥 Fetching Greenbook projections...")
+        # Handle FRED data differently
+        if source == "FRED":
+            print(f"📥 Fetching historical data from FRED...")
+            from src.macroeconomic_data.fred.services.data_fetcher import DataFetcher
+            fetcher = DataFetcher()
+            data = fetcher.get_series(cleaned_query)
+            print(f"\n📊 Found data for: {cleaned_query}")
+            print(f"📅 Date range: {data.index.min().strftime('%Y-%m-%d')} to {data.index.max().strftime('%Y-%m-%d')}")
+            latest_value = float(data.iloc[-1].iloc[0])  # Get the scalar value first, then convert to float
+            print(f"📈 Latest value: {latest_value:,.2f}")  # Add thousands separator and ensure float formatting
+            return True
+        else:
+            print(f"📥 Fetching Greenbook projections...")
+            # Save original argv
+            original_argv = sys.argv
+            try:
                 # Just pass the query without force-download
                 sys.argv = ['fetch-greenbook-data', '--query', cleaned_query]
                 success = fetch_greenbook_data.main() == 0
-                
-            return success
-            
-        finally:
-            # Restore original argv
-            sys.argv = original_argv
-            
+                return success
+            finally:
+                # Restore original argv
+                sys.argv = original_argv
+
     except Exception as e:
         print(f"\n❌ Error: {str(e)}")
         return None

@@ -4,6 +4,8 @@ Service for fetching data from FRED.
 import logging
 from typing import Optional
 import pandas as pd
+import json
+from datetime import datetime
 from ..core.fred_client import FREDClient
 from ...aws.bucket_manager import BucketManager
 
@@ -28,7 +30,7 @@ class DataFetcher:
     def __init__(self):
         """Initialize the data fetcher."""
         self.client = FREDClient()
-        self.bucket_manager = BucketManager(bucket_name="fred-data")
+        self.bucket_manager = BucketManager(bucket_name="macroeconomic-data")
     
     def _find_series_id(self, query: str) -> str:
         """Find the appropriate FRED series ID for a query."""
@@ -55,14 +57,50 @@ class DataFetcher:
             
         raise ValueError(f"Could not find a matching FRED series for query: {query}")
     
+    def _save_to_s3(self, data: pd.DataFrame, series_id: str, series_info: dict):
+        """Save data and metadata to S3."""
+        # Create metadata
+        metadata = {
+            'series_id': series_id,
+            'title': series_info.get('title', ''),
+            'units': series_info.get('units', ''),
+            'frequency': series_info.get('frequency', ''),
+            'last_updated': datetime.now().isoformat(),
+            'source': 'Federal Reserve Economic Data (FRED)',
+            'observation_start': data.index.min().isoformat(),
+            'observation_end': data.index.max().isoformat(),
+            'notes': series_info.get('notes', '')
+        }
+        
+        # Save data
+        data_path = f"fred/{series_id}/data.csv"
+        self.bucket_manager.upload_file(
+            file_content=data.to_csv().encode(),
+            file_path=data_path,
+            metadata={'content_type': 'text/csv'}
+        )
+        
+        # Save metadata
+        metadata_path = f"fred/{series_id}/metadata.json"
+        self.bucket_manager.upload_file(
+            file_content=json.dumps(metadata, indent=2).encode(),
+            file_path=metadata_path,
+            metadata={'content_type': 'application/json'}
+        )
+    
     def get_series(self, query: str) -> pd.DataFrame:
         """Get time series data for a given query."""
         try:
             # Find the appropriate series ID
             series_id = self._find_series_id(query)
             
-            # Fetch the data
+            # Fetch the data and series info
             data = self.client.get_series(series_id)
+            series_info = self.client.get_series_info(series_id)
+            
+            # Save to S3
+            self._save_to_s3(data, series_id, series_info)
+            
             return data
             
         except Exception as e:

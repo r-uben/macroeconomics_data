@@ -63,6 +63,10 @@ class FREDClient:
         
         return df
 
+    def get_series_info(self, series_id: str) -> dict:
+        """Get metadata information about a FRED series."""
+        return self.client.get_series_info(series_id)
+
     def search_series(self, search_text: str) -> pd.DataFrame:
         """Search for series in FRED"""
         return self.client.search(search_text) 
