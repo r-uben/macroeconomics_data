@@ -16,6 +16,7 @@ thefuzz = "^0.20.0"
 pathlib = "^1.0.1"
 pydantic = "^2.5.0"
 pydantic-settings = "^2.1.0"
+openpyxl = "^3.1.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.4.0"
@@ -25,6 +26,7 @@ flake8 = "^6.1.0"
 
 [tool.poetry.scripts]
 fetch-fred-data = "mains.fetch_federal_reserve_data:main"
+fetch-greenbook-data = "mains.fetch_greenbook_data:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

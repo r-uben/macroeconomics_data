@@ -1,29 +1,41 @@
 # Macroeconomic Data Analysis
 
-A Python package for fetching, analyzing, and storing macroeconomic data from Federal Reserve Economic Data (FRED) with AWS integration and LLM capabilities via Groq.
+A Python package for fetching, analyzing, and storing macroeconomic data from various sources including Federal Reserve Economic Data (FRED) with AWS integration and LLM capabilities.
 
 ## Features
 
-- **Data Fetching**: Automated retrieval of key economic indicators from FRED API
+- **Multi-Source Data Integration**: 
+  - Federal Reserve Economic Data (FRED)
+  - More sources coming soon (e.g., Philadelphia Fed Greenbook Forecasts)
 - **AWS Integration**: Secure storage and management of data in AWS S3
 - **LLM Analysis**: Advanced data analysis using Groq's LLM capabilities
 - **Interactive Mode**: Command-line interface for custom data queries
-- **Key Indicators**: Track essential metrics including:
-  - Real GDP
-  - Industrial Production
-  - Unemployment Rate
-  - Consumer Price Index
-  - Core Inflation
-  - Federal Funds Rate
+
+### Current Data Sources
+
+#### FRED API
+- Real GDP
+- Industrial Production
+- Unemployment Rate
+- Consumer Price Index
+- Core Inflation
+- Federal Funds Rate
 
 ## Project Structure
 
 ```
 macroeconomic_data/
 ├── mains/
-│   └── fetch_federal_reserve_data.py  # Main script for data fetching
+│   └── fetch_federal_reserve_data.py  # Main script for FRED data fetching
 ├── src/
-│   └── macroeconomic_data/           # Core package functionality
+│   └── macroeconomic_data/
+│       ├── fred/                     # FRED-specific functionality
+│       │   ├── core/                 # Core FRED client and models
+│       │   ├── services/             # FRED data services
+│       │   ├── config/               # FRED-specific configuration
+│       │   └── utils/                # FRED utility functions
+│       ├── aws/                      # AWS integration
+│       └── common/                   # Shared functionality
 ├── tests/
 │   ├── test_aws.py                   # AWS integration tests
 │   ├── test_groq.py                  # Groq LLM tests
