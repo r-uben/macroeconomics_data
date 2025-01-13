@@ -10,6 +10,7 @@ from typing import Dict, Optional
 import zipfile
 import io
 import pandas as pd
+import json
 
 from src.macroeconomic_data.aws.bucket_manager import BucketManager
 
@@ -152,6 +153,45 @@ class GreenBookDataFetcher:
             logger.error(f"Error storing documentation file: {str(e)}")
             return False
 
+    def _get_file_description(self, filename: str) -> str:
+        """Get a human-readable description from a filename."""
+        # Remove extension
+        name = filename.rsplit('.', 1)[0]
+        
+        # Split by underscore
+        parts = name.split('_')
+        if len(parts) >= 3:
+            var_code = parts[0]
+            start_year = parts[1]
+            end_year = parts[2]
+            if end_year.lower() == 'last':
+                end_year = 'Present'
+            return f"{var_code} ({start_year} to {end_year})"
+        
+        return filename
+
+    def _save_locally(self, content: bytes, variable_code: str, filename: str, metadata: dict) -> bool:
+        """Save file and metadata locally."""
+        try:
+            # Create base directory
+            base_dir = Path('data/green_book') / variable_code / filename.rsplit('.', 1)[0]
+            base_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Save data file
+            data_path = base_dir / f"data.{filename.split('.')[-1]}"
+            data_path.write_bytes(content)
+            
+            # Save metadata
+            metadata_path = base_dir / "metadata.txt"
+            with metadata_path.open('w') as f:
+                for key, value in metadata.items():
+                    f.write(f"{key}: {value}\n")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error saving files locally: {str(e)}")
+            return False
+
     def _extract_and_store_zip(self, zip_content: bytes, variable_key: str, variable_code: str) -> bool:
         """Extract ZIP contents and store files in S3."""
         try:
@@ -160,29 +200,76 @@ class GreenBookDataFetcher:
             
             with zipfile.ZipFile(zip_buffer) as zip_ref:
                 # List all files in the ZIP
+                files = zip_ref.namelist()
+                
+                # Filter out any non-data files (like README or documentation)
+                data_files = [f for f in files if f.endswith(('.csv', '.xlsx'))]
+                
+                if len(data_files) > 1:
+                    print("\nMultiple datasets found. Please choose one:")
+                    for idx, filename in enumerate(data_files, 1):
+                        description = self._get_file_description(filename)
+                        print(f"{idx}. {description}")
+                    
+                    while True:
+                        try:
+                            choice = int(input("\nEnter number (0 to cancel): "))
+                            if choice == 0:
+                                return False
+                            if 1 <= choice <= len(data_files):
+                                selected_files = [data_files[choice - 1]]
+                                break
+                            print("Invalid choice. Please try again.")
+                        except ValueError:
+                            print("Please enter a valid number.")
+                else:
+                    selected_files = data_files
+
                 success = True
-                for filename in zip_ref.namelist():
+                for filename in selected_files:
                     logger.info(f"Extracting {filename} from ZIP...")
                     
-                    # Read file content from ZIP
+                    # Read file content from ZIP as binary
                     with zip_ref.open(filename) as file:
                         file_content = file.read()
                     
-                    # Construct S3 object key
-                    object_key = f"{variable_code}/{filename}"
-                    metadata = self._get_metadata(variable_key, filename)
+                    # Get base directory for this file
+                    base_dir = f"{variable_code}/{filename.rsplit('.', 1)[0]}"
                     
-                    # Upload to S3
+                    # Save to S3
+                    # Save data file
+                    data_path = f"{base_dir}/data.{filename.split('.')[-1]}"
                     file_success = self.bucket_manager.upload_file(
                         file_content=file_content,
-                        file_path=object_key,
-                        metadata=metadata
+                        file_path=data_path,
+                        metadata={'content_type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if filename.endswith('.xlsx') else 'text/csv'}
                     )
                     
-                    if file_success:
-                        logger.info(f"Successfully stored {filename} in S3")
-                    else:
+                    if not file_success:
                         logger.error(f"Failed to store {filename} in S3")
+                        success = False
+                        continue
+                    
+                    # Save metadata
+                    metadata = self._get_metadata(variable_key, filename)
+                    metadata_path = f"{base_dir}/metadata.json"
+                    metadata_success = self.bucket_manager.upload_file(
+                        file_content=json.dumps(metadata, indent=2).encode(),
+                        file_path=metadata_path,
+                        metadata={'content_type': 'application/json'}
+                    )
+                    
+                    if not metadata_success:
+                        logger.error(f"Failed to store metadata for {filename} in S3")
+                        success = False
+                        continue
+                    
+                    # Save locally
+                    local_success = self._save_locally(file_content, variable_code, filename, metadata)
+                    if local_success:
+                        logger.info(f"Successfully stored {filename} locally and in S3")
+                    else:
+                        logger.error(f"Failed to store {filename} locally")
                         success = False
                         
                 return success
@@ -194,20 +281,38 @@ class GreenBookDataFetcher:
             logger.error(f"Error processing ZIP file for {variable_key}: {str(e)}")
             return False
 
-    def download_and_store_variable(self, variable_key: str) -> bool:
+    def download_and_store_variable(self, variable_key: str, force_download: bool = True) -> bool:
         """Download and store a specific variable's data."""
         variable_code = self.VARIABLES.get(variable_key)
         if not variable_code:
             logger.error(f"Unknown variable key: {variable_key}")
             return False
 
-        url = self._construct_download_url(variable_code)
-        content = self._download_file(url)
-        
-        if not content:
-            return False
+        # Always download the ZIP file if force_download is True
+        if force_download:
+            url = self._construct_download_url(variable_code)
+            content = self._download_file(url)
+            
+            if not content:
+                return False
 
-        return self._extract_and_store_zip(content, variable_key, variable_code)
+            return self._extract_and_store_zip(content, variable_key, variable_code)
+        else:
+            # Check if files exist in bucket
+            contents = self.bucket_manager.get_contents()
+            variable_files = [item for item in contents if item['Key'].startswith(f"{variable_code}/")]
+            
+            if not variable_files:
+                # No files found, download and extract
+                url = self._construct_download_url(variable_code)
+                content = self._download_file(url)
+                
+                if not content:
+                    return False
+
+                return self._extract_and_store_zip(content, variable_key, variable_code)
+            
+            return True
 
     def download_all_variables(self) -> Dict[str, bool]:
         """Download and store all available variables."""

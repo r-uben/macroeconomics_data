@@ -87,7 +87,7 @@ def determine_data_source(query: str) -> Tuple[str, str]:
             cleaned_query = cleaned_query.replace(word, '').strip()
         return "FRED", cleaned_query
 
-def fetch_data(query: str) -> Optional[bool]:
+def fetch_data(query: str, force_reload: bool = False) -> Optional[bool]:
     """Fetch data from the appropriate source based on the query."""
     try:
         # Determine which source to use
@@ -108,17 +108,46 @@ def fetch_data(query: str) -> Optional[bool]:
             return True
         else:
             print(f"📥 Fetching Greenbook projections...")
-            # Save original argv
-            original_argv = sys.argv
-            try:
-                # Just pass the query without force-download
-                sys.argv = ['fetch-greenbook-data', '--query', cleaned_query]
-                success = fetch_greenbook_data.main() == 0
-                return success
-            finally:
-                # Restore original argv
-                sys.argv = original_argv
-
+            from src.macroeconomic_data.greenbook.services.data_fetcher import GreenBookDataFetcher
+            from src.macroeconomic_data.greenbook.utils.variable_mapper import VariableMapper
+            
+            # Initialize fetcher and mapper
+            fetcher = GreenBookDataFetcher()
+            mapper = VariableMapper()
+            
+            # Find matches for the query
+            matches = mapper.match_variable(cleaned_query)
+            if not matches:
+                print("\n❌ No matching variables found.")
+                return False
+            
+            # If multiple matches, let user choose
+            if len(matches) > 1:
+                print("\nMultiple matches found. Please choose one:")
+                for idx, match in enumerate(matches, 1):
+                    var_info = mapper.get_variable_info(match['variable_key'])
+                    print(f"{idx}. {match['variable_key']} ({var_info['description']})")
+                
+                while True:
+                    try:
+                        choice = int(input("\nEnter number (0 to cancel): "))
+                        if choice == 0:
+                            return False
+                        if 1 <= choice <= len(matches):
+                            selected_match = matches[choice - 1]
+                            break
+                        print("Invalid choice. Please try again.")
+                    except ValueError:
+                        print("Please enter a valid number.")
+            else:
+                selected_match = matches[0]
+            
+            # Get the variable code and fetch data
+            variable_key = selected_match['variable_key'].split('.')[0]  # Get main key
+            success = fetcher.download_and_store_variable(variable_key, force_download=force_reload)
+            
+            return success
+            
     except Exception as e:
         print(f"\n❌ Error: {str(e)}")
         return None
@@ -134,12 +163,17 @@ def main():
         nargs='+',
         help='Query describing the data you want (e.g., "greenbook projections for real gdp" or "historical real gdp")'
     )
+    parser.add_argument(
+        '--reload',
+        action='store_true',
+        help='Force reload data from source instead of using cached version'
+    )
     args = parser.parse_args()
     
     query = ' '.join(args.query)
     print("\n🔍 Processing query:", query)
     
-    success = fetch_data(query)
+    success = fetch_data(query, force_reload=args.reload)
     print_separator()
     
     if success:
