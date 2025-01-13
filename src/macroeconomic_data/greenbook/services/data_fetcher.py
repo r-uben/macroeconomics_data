@@ -283,6 +283,19 @@ class GreenBookDataFetcher:
 
     def download_and_store_variable(self, variable_key: str, force_download: bool = True) -> bool:
         """Download and store a specific variable's data."""
+        # Handle full variable keys (e.g., 'gdp.real_gdp')
+        if '.' in variable_key:
+            main_key, sub_key = variable_key.split('.')
+            # Convert to the actual key format (e.g., 'gdp.real_gdp' -> 'rgdp')
+            if main_key == 'gdp' and sub_key == 'real_gdp':
+                variable_key = 'rgdp'
+            elif main_key == 'gdp' and sub_key == 'price_gdp':
+                variable_key = 'pgdp'
+            elif main_key == 'cpi' and sub_key == 'core':
+                variable_key = 'core_cpi'
+            elif main_key == 'pce' and sub_key == 'core':
+                variable_key = 'core_pce'
+            
         variable_code = self.VARIABLES.get(variable_key)
         if not variable_code:
             logger.error(f"Unknown variable key: {variable_key}")

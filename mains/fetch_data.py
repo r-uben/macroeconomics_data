@@ -142,8 +142,8 @@ def fetch_data(query: str, force_reload: bool = False) -> Optional[bool]:
             else:
                 selected_match = matches[0]
             
-            # Get the variable code and fetch data
-            variable_key = selected_match['variable_key'].split('.')[0]  # Get main key
+            # Get the variable key and fetch data
+            variable_key = selected_match['variable_key']  # Use the full key
             success = fetcher.download_and_store_variable(variable_key, force_download=force_reload)
             
             return success
