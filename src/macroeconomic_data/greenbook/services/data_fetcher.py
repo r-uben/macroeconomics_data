@@ -286,20 +286,30 @@ class GreenBookDataFetcher:
         # Handle full variable keys (e.g., 'gdp.real_gdp')
         if '.' in variable_key:
             main_key, sub_key = variable_key.split('.')
-            # Convert to the actual key format (e.g., 'gdp.real_gdp' -> 'rgdp')
+            # Convert to the actual key format
             if main_key == 'gdp' and sub_key == 'real_gdp':
                 variable_key = 'rgdp'
             elif main_key == 'gdp' and sub_key == 'price_gdp':
                 variable_key = 'pgdp'
-            elif main_key == 'cpi' and sub_key == 'core':
-                variable_key = 'core_cpi'
-            elif main_key == 'pce' and sub_key == 'core':
-                variable_key = 'core_pce'
+            elif main_key == 'cpi':
+                if sub_key == 'core':
+                    variable_key = 'core_cpi'
+                elif sub_key == 'headline':
+                    variable_key = 'cpi'
+            elif main_key == 'pce':
+                if sub_key == 'core':
+                    variable_key = 'core_pce'
+                elif sub_key == 'headline':
+                    variable_key = 'pce'
             
         variable_code = self.VARIABLES.get(variable_key)
         if not variable_code:
             logger.error(f"Unknown variable key: {variable_key}")
             return False
+
+        # Print which series we're downloading
+        print(f"\n📊 Downloading series: {variable_code}")
+        print(f"📝 Description: {self._get_metadata(variable_key, '')['variable_description']}\n")
 
         # Always download the ZIP file if force_download is True
         if force_download:
