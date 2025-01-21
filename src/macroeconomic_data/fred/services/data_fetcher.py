@@ -8,6 +8,7 @@ import json
 from datetime import datetime
 from ..core.fred_client import FREDClient
 from ...aws.bucket_manager import BucketManager
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,29 @@ class DataFetcher:
             metadata={'content_type': 'application/json'}
         )
     
+    def _save_locally(self, data: pd.DataFrame, series_id: str, metadata: dict):
+        """Save data and metadata locally."""
+        try:
+            # Create base directory
+            base_dir = Path('data/fred') / series_id
+            base_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Save data
+            data_path = base_dir / "data.csv"
+            data.to_csv(data_path)
+            
+            # Save metadata
+            metadata_path = base_dir / "metadata.txt"
+            with metadata_path.open('w') as f:
+                for key, value in metadata.items():
+                    f.write(f"{key}: {value}\n")
+                    
+            logger.info(f"Successfully saved {series_id} data locally")
+            
+        except Exception as e:
+            logger.error(f"Error saving {series_id} locally: {str(e)}")
+            raise
+
     def get_series(self, query: str) -> pd.DataFrame:
         """Get time series data for a given query."""
         try:
@@ -98,8 +122,24 @@ class DataFetcher:
             data = self.client.get_series(series_id)
             series_info = self.client.get_series_info(series_id)
             
+            # Create metadata
+            metadata = {
+                'series_id': series_id,
+                'title': series_info.get('title', ''),
+                'units': series_info.get('units', ''),
+                'frequency': series_info.get('frequency', ''),
+                'last_updated': datetime.now().isoformat(),
+                'source': 'Federal Reserve Economic Data (FRED)',
+                'observation_start': data.index.min().isoformat(),
+                'observation_end': data.index.max().isoformat(),
+                'notes': series_info.get('notes', '')
+            }
+            
             # Save to S3
             self._save_to_s3(data, series_id, series_info)
+            
+            # Save locally
+            self._save_locally(data, series_id, metadata)
             
             return data
             
