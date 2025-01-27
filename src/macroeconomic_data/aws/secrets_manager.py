@@ -19,17 +19,18 @@ def get_secret(secret_name: str, key: str = None) -> str:
         session = boto3.session.Session()
         client = session.client('secretsmanager')
         response = client.get_secret_value(SecretId=secret_name)
+        
+        # Get the secret string
         secret = response['SecretString']
         
         # Try to parse as JSON
         try:
             secret_dict = json.loads(secret)
             # If a specific key is requested, return that
-            if key and isinstance(secret_dict, dict):
-                return secret_dict[key]
-            # If it's a dict but no key specified, return the whole dict
-            if isinstance(secret_dict, dict):
-                return secret_dict
+            if key:
+                return secret_dict.get(key)
+            # Return the whole dict
+            return secret_dict
         except json.JSONDecodeError:
             # If not JSON, return as is
             return secret
